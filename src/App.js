@@ -1,24 +1,37 @@
-import logo from './logo.svg';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
+import Navbar from './components/Navbar';
+import LandingPage from './pages/LandingPage';
+import Login from './pages/Login';
+import SignUp from './pages/SignUp';
+import Chat from './pages/Chat';
+import CreatePost from './pages/CreatePost';
+import Profile from './pages/Profile';
+import AuthSuccess from './pages/AuthSuccess'; // Add this import
 import './App.css';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <AuthProvider>
+      <SocketProvider>
+        <Router>
+          <div className="App">
+            <Navbar />
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/chat" element={<Chat />} />
+              <Route path="/create-post" element={<CreatePost />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/auth/success" element={<AuthSuccess />} /> {/* Add this route */}
+            </Routes>
+          </div>
+        </Router>
+      </SocketProvider>
+    </AuthProvider>
   );
 }
 
