@@ -11,6 +11,8 @@ import CreatePost from './pages/CreatePost';
 import Profile from './pages/Profile';
 import AuthSuccess from './pages/AuthSuccess'; // Add this import
 import './App.css';
+import ExchangeRequests from './pages/ExchangeRequests';
+import Marketplace from './pages/Marketplace';
 
 function App() {
   return (
@@ -26,7 +28,9 @@ function App() {
               <Route path="/chat" element={<Chat />} />
               <Route path="/create-post" element={<CreatePost />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/auth/success" element={<AuthSuccess />} /> {/* Add this route */}
+              <Route path="/exchange-requests" element={<ExchangeRequests />} />
+              <Route path="/auth/success" element={<AuthSuccess />} />
+             <Route path="/marketplace" element={<Marketplace />} /> 
             </Routes>
           </div>
         </Router>

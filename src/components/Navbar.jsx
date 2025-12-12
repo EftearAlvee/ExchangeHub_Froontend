@@ -1,21 +1,86 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 import { 
   HomeIcon, 
   ChatBubbleLeftRightIcon, 
   PlusCircleIcon, 
-  UserCircleIcon 
+  UserCircleIcon,
+  BellIcon,
+  ShoppingBagIcon
 } from '@heroicons/react/24/outline';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  // Fetch pending exchange requests count
+  useEffect(() => {
+    const fetchNotificationCount = async () => {
+      if (!user) return;
+      
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get('http://localhost:5000/api/exchange/my-requests', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        // Extract exchanges array from response
+        let exchanges = [];
+        
+        if (response.data && response.data.exchanges) {
+          // New format: { exchanges: [], counts: {} }
+          exchanges = Array.isArray(response.data.exchanges) ? response.data.exchanges : [];
+        } else if (Array.isArray(response.data)) {
+          // Old format: directly an array
+          exchanges = response.data;
+        } else {
+          console.warn('Unexpected response format:', response.data);
+          exchanges = [];
+        }
+        
+        // Count pending requests where user is the seller
+        const pendingCount = exchanges.filter(exchange => {
+          if (!exchange || !exchange.seller) return false;
+          
+          // Check if user is the seller (handle both populated object and ID string)
+          const sellerId = exchange.seller._id || exchange.seller;
+          const isSeller = user._id === sellerId;
+          
+          return exchange.status === 'pending' && isSeller;
+        }).length;
+        
+        setNotificationCount(pendingCount);
+        
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        setNotificationCount(0);
+      }
+    };
+
+    fetchNotificationCount();
+    
+    // Optional: Set up polling for real-time updates
+    const interval = setInterval(fetchNotificationCount, 30000); // Every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [user]);
 
   const navItems = [
     { path: '/', icon: HomeIcon, label: 'Home' },
+    { path: '/marketplace', icon: ShoppingBagIcon, label: 'Marketplace' },
     { path: '/chat', icon: ChatBubbleLeftRightIcon, label: 'Chat' },
-    { path: '/create-post', icon: PlusCircleIcon, label: 'Sell' },
+    { path: '/create-post', icon: PlusCircleIcon, label: 'Post' },
+    { 
+      path: '/exchange-requests', 
+      icon: BellIcon, 
+      label: 'Exchanges',
+      badge: notificationCount > 0 ? notificationCount : null
+    },
   ];
 
   return (
@@ -42,7 +107,7 @@ const Navbar = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-all duration-200 ${
+                  className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-all duration-200 relative ${
                     isActive
                       ? 'bg-primary-50 text-primary-600 font-medium'
                       : 'text-gray-600 hover:text-primary-600 hover:bg-gray-50'
@@ -50,6 +115,11 @@ const Navbar = () => {
                 >
                   <Icon className="w-5 h-5" />
                   <span>{item.label}</span>
+                  {item.badge && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -105,7 +175,7 @@ const Navbar = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-all duration-200 ${
+                  className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-all duration-200 relative ${
                     isActive
                       ? 'text-primary-600 bg-primary-50'
                       : 'text-gray-600 hover:text-primary-600'
@@ -113,6 +183,11 @@ const Navbar = () => {
                 >
                   <Icon className="w-6 h-6" />
                   <span className="text-xs">{item.label}</span>
+                  {item.badge && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}

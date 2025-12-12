@@ -5,7 +5,8 @@ import axios from 'axios';
 import { 
   PhotoIcon,
   MapPinIcon,
-  CurrencyBangladeshiIcon 
+  CurrencyBangladeshiIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 const CreatePost = () => {
@@ -19,6 +20,7 @@ const CreatePost = () => {
     location: ''
   });
   const [images, setImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -32,8 +34,31 @@ const CreatePost = () => {
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
-    // For demo - in real app, you'd upload to cloud storage
-    setImages(files.slice(0, 4)); // Limit to 4 images
+    
+    // Validate file count
+    if (images.length + files.length > 4) {
+      alert('You can only upload up to 4 images');
+      return;
+    }
+
+    // Create preview URLs and add to images array
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setImagePreviews(prev => [...prev, ...newPreviews]);
+    setImages(prev => [...prev, ...files]);
+  };
+
+  const removeImage = (index) => {
+    const newImages = [...images];
+    const newPreviews = [...imagePreviews];
+    
+    // Revoke object URL to prevent memory leaks
+    URL.revokeObjectURL(newPreviews[index]);
+    
+    newImages.splice(index, 1);
+    newPreviews.splice(index, 1);
+    
+    setImages(newImages);
+    setImagePreviews(newPreviews);
   };
 
   const handleSubmit = async (e) => {
@@ -44,23 +69,43 @@ const CreatePost = () => {
       return;
     }
 
+    if (images.length === 0) {
+      alert('Please upload at least one image');
+      return;
+    }
+
     setLoading(true);
     
     try {
-      const postData = {
-        ...formData,
-        price: parseInt(formData.price),
-        images: images.map(() => 'demo-image-url'), // Replace with actual uploaded URLs
-        location: {
-          coordinates: [90.3563, 23.6850], // Default Dhaka coordinates
-          address: formData.location || 'Dhaka, Bangladesh'
-        }
-      };
+      const postFormData = new FormData();
+      
+      // Append form data
+      postFormData.append('title', formData.title);
+      postFormData.append('description', formData.description);
+      postFormData.append('category', formData.category);
+      postFormData.append('condition', formData.condition);
+      postFormData.append('price', formData.price);
+      postFormData.append('exchangeFor', formData.exchangeFor);
+      postFormData.append('location', formData.location);
+      
+      // Append images
+      images.forEach(image => {
+        postFormData.append('images', image);
+      });
 
-      const response = await axios.post('http://localhost:5000/api/posts', postData);
+      const token = localStorage.getItem('token');
+      const response = await axios.post('http://localhost:5000/api/posts', postFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      console.log('Post created response:', response.data); 
+
       alert('Post created successfully!');
       navigate('/');
     } catch (error) {
+      console.error('Error creating post:', error);
       alert('Failed to create post: ' + (error.response?.data?.error || 'Something went wrong'));
     } finally {
       setLoading(false);
@@ -95,35 +140,52 @@ const CreatePost = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Image Upload */}
+            {/* Image Upload Section */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-4">
-                Upload Images (Max 4)
+                Upload Images (Max 4) *
               </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {images.map((image, index) => (
-                  <div key={index} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                    <img
-                      src={URL.createObjectURL(image)}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-                {images.length < 4 && (
-                  <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
+              
+              {/* Image Previews */}
+              {imagePreviews.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  {imagePreviews.map((preview, index) => (
+                    <div key={index} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group">
+                      <img
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Upload Button */}
+              {images.length < 4 && (
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors bg-gray-50">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <PhotoIcon className="w-8 h-8 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-600">Add Photo</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
+                    <p className="text-sm text-gray-600">Click to upload images</p>
+                    <p className="text-xs text-gray-500">PNG, JPG, JPEG (Max 5MB)</p>
+                    <p className="text-xs text-gray-500">{images.length}/4 images</p>
+                  </div>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
 
             {/* Basic Information */}
@@ -268,7 +330,7 @@ const CreatePost = () => {
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || images.length === 0}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? (

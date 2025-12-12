@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios'; // Import axios properly at the top
 
 const AuthSuccess = () => {
   const navigate = useNavigate();
@@ -21,28 +22,62 @@ const AuthSuccess = () => {
           localStorage.setItem('token', token);
           
           // Set default authorization header for axios
-          const axios = require('axios');
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           
-          // Fetch user data using the token
-          const userResponse = await axios.get('http://localhost:5000/api/users/profile');
-          const userData = userResponse.data;
-          
-          console.log('User data:', userData);
-          
-          // Update auth context
-          login(token, userData);
-          
-          // Redirect to home page
-          navigate('/');
+          try {
+            // Fetch user data using the token
+            const userResponse = await axios.get('http://localhost:5000/api/users/profile');
+            const userData = userResponse.data;
+            
+            console.log('User data:', userData);
+            
+            // Update auth context
+            login(token, userData);
+            
+            // Redirect to home page
+            navigate('/');
+          } catch (profileError) {
+            console.error('Error fetching user profile:', profileError);
+            
+            // If profile endpoint fails, create a basic user object from token
+            const decodedToken = JSON.parse(atob(token.split('.')[1]));
+            const basicUserData = {
+              _id: decodedToken.userId,
+              name: 'Google User',
+              email: 'user@google.com'
+            };
+            
+            login(token, basicUserData);
+            navigate('/');
+          }
         } else {
           console.error('No token found in URL');
           navigate('/login');
         }
       } catch (error) {
         console.error('Auth success error:', error);
-        alert('Authentication failed. Please try again.');
-        navigate('/login');
+        
+        // If there's still a token, try to use it anyway
+        const urlParams = new URLSearchParams(location.search);
+        const token = urlParams.get('token');
+        
+        if (token) {
+          localStorage.setItem('token', token);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          
+          // Create a basic user object
+          const basicUserData = {
+            _id: 'temp-user-id',
+            name: 'Google User',
+            email: 'user@google.com'
+          };
+          
+          login(token, basicUserData);
+          navigate('/');
+        } else {
+          alert('Authentication failed. Please try again.');
+          navigate('/login');
+        }
       }
     };
 
